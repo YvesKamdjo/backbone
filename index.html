@@ -4,6 +4,17 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
   <title>Hello World in Backbone.js</title>
+    <style>
+        #todo-list input.edit {
+            display: none; /* Hides input box*/
+        }
+        #todo-list .editing label {
+            display: none; /* Hides label text when .editing*/
+        }
+        #todo-list .editing input.edit {
+            display: inline; /* Shows input text box when .editing*/
+        }
+    </style>
 </head>
 <body>
     <div id="container">Loading...</div>
@@ -36,11 +47,10 @@
   <!-- =============== -->
     <script type="text/template" id="item-template">
         <div class="view row">
-            <input class="toggle" type="checkbox">
+            <input class="toggle" type="checkbox" <%= completed ? 'checked' : '' %>>
             <label><%- title %>: Add on: <%- add_date %></label>
-        </div>
-        <div class="row">
-
+            <input class="edit" value="<%- title %>">
+            <button class="destroy">remove</button>
         </div>
     </script>
 
@@ -50,11 +60,14 @@
    var app = {}; // create namespace for our app
 
     app.Todo = Backbone.Model.extend({
-      defaults: {
-        title: '',
-        add_date: new Date(),
-        completed: false
-      }
+        defaults: {
+            title: '',
+            add_date: new Date(),
+            completed: false
+        },
+        toggle: function(){
+            this.save({ completed: !this.get('completed')});
+        }
     });
 
 
@@ -75,11 +88,42 @@
         tagName: 'li',
         template: _.template($('#item-template').html()),
         render: function(){
-            this.$el.html(this.template(
-                    this.model.toJSON()
-            )
-            );
+            this.$el.html(this.template(this.model.toJSON()));
+            this.input = this.$('.edit');
             return this; // enable chained calls
+        },
+        initialize: function(){
+            this.model.on('change', this.render, this);
+            this.model.on('destroy', this.remove, this);
+        },
+        events: {
+            'dblclick label' : 'edit',
+            'keypress .edit' : 'updateOnEnter',
+            'blur .edit' : 'close',
+            'click .toggle': 'toggleCompleted',
+            'click .destroy': 'destroy'
+        },
+        edit: function(){
+            this.$el.addClass('editing');
+            this.input.focus();
+        },
+        close: function(){
+            var value = this.input.val().trim();
+            if(value) {
+                this.model.save({title: value});
+            }
+            this.$el.removeClass('editing');
+        },
+        updateOnEnter: function(e){
+            if(e.which == 13){
+                this.close();
+            }
+        },
+        toggleCompleted: function(){
+            this.model.toggle();
+        },
+        destroy: function(){
+            this.model.destroy();
         }
     });
 
@@ -95,7 +139,7 @@
             app.todoList.fetch(); // Loads list from local storage
         },
         events: {
-            'keypress #new-todo': 'createTodoOnEnter'
+            'keypress #new-todo': 'createTodoOnEnter',
         },
         createTodoOnEnter: function(e){//Add a new item to local storage
             if ( e.which !== 13 || !this.input.val().trim() ) { // ENTER_KEY = 13
